@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using DailyProduction.Models;
 
 namespace IbasAPI.Controllers
@@ -12,60 +8,93 @@ namespace IbasAPI.Controllers
     [Route("[controller]")]
     public class DailyProductionController : ControllerBase
     {
-
-        private List<DailyProductionDTO> _productionRepo;
         private readonly ILogger<DailyProductionController> _logger;
+        private readonly List<DailyProductionDTO> _productionRepo;
 
         public DailyProductionController(ILogger<DailyProductionController> logger)
         {
             _logger = logger;
-            _productionRepo = new List<DailyProductionDTO>
-            {
-                new DailyProductionDTO {Date = new DateTime(2020, 1, 31), Model = BikeModel.IBv1, ItemsProduced = 12},
-                new DailyProductionDTO {Date = new DateTime(2020, 2, 28), Model = BikeModel.IBv1, ItemsProduced = 32},
-                new DailyProductionDTO {Date = new DateTime(2020, 3, 31), Model = BikeModel.IBv1, ItemsProduced = 32},
-                new DailyProductionDTO {Date = new DateTime(2020, 4, 30), Model = BikeModel.IBv1, ItemsProduced = 141},
-                new DailyProductionDTO {Date = new DateTime(2020, 5, 31), Model = BikeModel.IBv1, ItemsProduced = 146},
-                new DailyProductionDTO {Date = new DateTime(2020, 6, 30), Model = BikeModel.IBv1, ItemsProduced = 162},
-                new DailyProductionDTO {Date = new DateTime(2020, 7, 31), Model = BikeModel.IBv1, ItemsProduced = 102},
-                new DailyProductionDTO {Date = new DateTime(2020, 8, 31), Model = BikeModel.IBv1, ItemsProduced = 210},
-                new DailyProductionDTO {Date = new DateTime(2020, 9, 30), Model = BikeModel.IBv1, ItemsProduced = 144},
-                new DailyProductionDTO {Date = new DateTime(2020, 10, 31), Model = BikeModel.IBv1, ItemsProduced = 151},
-                new DailyProductionDTO {Date = new DateTime(2020, 11, 30), Model = BikeModel.IBv1, ItemsProduced = 61},
-                new DailyProductionDTO {Date = new DateTime(2020, 12, 31), Model = BikeModel.IBv1, ItemsProduced = 86},
-
-                new DailyProductionDTO {Date = new DateTime(2020, 1, 31), Model = BikeModel.evIB100, ItemsProduced = 1},
-                new DailyProductionDTO {Date = new DateTime(2020, 2, 28), Model = BikeModel.evIB100, ItemsProduced = 2},
-                new DailyProductionDTO {Date = new DateTime(2020, 3, 31), Model = BikeModel.evIB100, ItemsProduced = 3},
-                new DailyProductionDTO {Date = new DateTime(2020, 4, 30), Model = BikeModel.evIB100, ItemsProduced = 4},
-                new DailyProductionDTO {Date = new DateTime(2020, 5, 31), Model = BikeModel.evIB100, ItemsProduced = 4},
-                new DailyProductionDTO {Date = new DateTime(2020, 6, 30), Model = BikeModel.evIB100, ItemsProduced = 6},
-                new DailyProductionDTO {Date = new DateTime(2020, 7, 31), Model = BikeModel.evIB100, ItemsProduced = 10},
-                new DailyProductionDTO {Date = new DateTime(2020, 8, 31), Model = BikeModel.evIB100, ItemsProduced = 21},
-                new DailyProductionDTO {Date = new DateTime(2020, 9, 30), Model = BikeModel.evIB100, ItemsProduced = 17},
-                new DailyProductionDTO {Date = new DateTime(2020, 10, 31), Model = BikeModel.evIB100, ItemsProduced = 15},
-                new DailyProductionDTO {Date = new DateTime(2020, 11, 30), Model = BikeModel.evIB100, ItemsProduced = 25},
-                new DailyProductionDTO {Date = new DateTime(2020, 12, 31), Model = BikeModel.evIB100, ItemsProduced = 30},
-
-                new DailyProductionDTO {Date = new DateTime(2020, 1, 31), Model = BikeModel.evIB200, ItemsProduced = 10},
-                new DailyProductionDTO {Date = new DateTime(2020, 2, 28), Model = BikeModel.evIB200, ItemsProduced = 2},
-                new DailyProductionDTO {Date = new DateTime(2020, 3, 31), Model = BikeModel.evIB200, ItemsProduced = 32},
-                new DailyProductionDTO {Date = new DateTime(2020, 4, 30), Model = BikeModel.evIB200, ItemsProduced = 41},
-                new DailyProductionDTO {Date = new DateTime(2020, 5, 31), Model = BikeModel.evIB200, ItemsProduced = 46},
-                new DailyProductionDTO {Date = new DateTime(2020, 6, 30), Model = BikeModel.evIB200, ItemsProduced = 62},
-                new DailyProductionDTO {Date = new DateTime(2020, 7, 31), Model = BikeModel.evIB200, ItemsProduced = 102},
-                new DailyProductionDTO {Date = new DateTime(2020, 8, 31), Model = BikeModel.evIB200, ItemsProduced = 21},
-                new DailyProductionDTO {Date = new DateTime(2020, 9, 30), Model = BikeModel.evIB200, ItemsProduced = 44},
-                new DailyProductionDTO {Date = new DateTime(2020, 10, 31), Model = BikeModel.evIB200, ItemsProduced = 51},
-                new DailyProductionDTO {Date = new DateTime(2020, 11, 30), Model = BikeModel.evIB200, ItemsProduced = 61},
-                new DailyProductionDTO {Date = new DateTime(2020, 12, 31), Model = BikeModel.evIB200, ItemsProduced = 88}
-            };
+            var csvPath = Path.Combine(AppContext.BaseDirectory, "Data", "IBASProduction2022.csv");
+            _productionRepo = LoadFromCsv(csvPath);
+            _logger.LogInformation("Loaded {Count} rows from {Path}", _productionRepo.Count, csvPath);
         }
-        
+
         [HttpGet]
-        public IEnumerable<DailyProductionDTO> Get()
+        public IEnumerable<DailyProductionDTO> Get() => _productionRepo;
+
+        private static List<DailyProductionDTO> LoadFromCsv(string path)
         {
-            return _productionRepo;
+            var list = new List<DailyProductionDTO>();
+
+            if (!System.IO.File.Exists(path))
+                throw new FileNotFoundException($"CSV file not found at {path}");
+
+            using var sr = new StreamReader(path);
+            string? line;
+            bool isHeader = true;
+
+            while ((line = sr.ReadLine()) is not null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                // Split på komma – fallback til whitespace hvis der ikke er kommaer
+                string[] parts = line.Split(',');
+                if (parts.Length < 5)
+                    parts = System.Text.RegularExpressions.Regex.Split(line.Trim(), @"\s+");
+
+                // Spring headerlinjen over
+                if (isHeader)
+                {
+                    isHeader = false;
+                    if (parts.Length >= 2 && parts[0].Contains("PartitionKey", StringComparison.OrdinalIgnoreCase))
+                        continue; // normal header
+                    // hvis første linje ikke var en header, så lad den parse igennem
+                }
+
+                if (parts.Length < 5) continue;
+
+                // Forventet rækkefølge:
+                // 0: PartitionKey
+                // 1: RowKey (yyyy-MM-ddTHH:mm:ss)  ← vi bruger som "Date"
+                // 2: ProductionTime (ISO)          ← ignoreres
+                // 3: itemsProduced (int)
+                // 4: itemsProduced@type            ← ignoreres
+
+                var pkStr   = parts[0].Trim().Trim('"');
+                var rowKey  = parts[1].Trim().Trim('"');
+                var itemsStr= parts[3].Trim().Trim('"');
+
+                if (!int.TryParse(pkStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pk))
+                    continue;
+
+                var model = pk switch
+                {
+                    1 => BikeModel.IBv1,
+                    2 => BikeModel.evIB100,
+                    3 => BikeModel.evIB200,
+                    _ => BikeModel.undefined
+                };
+
+                if (!DateTime.TryParse(rowKey, CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date))
+                {
+                    // sidste forsøg uden tidszone
+                    if (!DateTime.TryParse(rowKey, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+                        continue;
+                }
+
+                if (!int.TryParse(itemsStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var items))
+                    continue;
+
+                list.Add(new DailyProductionDTO
+                {
+                    Date = date,
+                    Model = model,
+                    ItemsProduced = items
+                });
+            }
+
+            return list;
         }
     }
 }
