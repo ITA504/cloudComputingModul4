@@ -11,13 +11,21 @@ namespace IbasAPI.Controllers
         private readonly ILogger<DailyProductionController> _logger;
         private readonly List<DailyProductionDTO> _productionRepo;
 
-        public DailyProductionController(ILogger<DailyProductionController> logger)
+        public DailyProductionController(ILogger<DailyProductionController> logger, IConfiguration config)
         {
             _logger = logger;
-            var csvPath = Path.Combine(AppContext.BaseDirectory, "Data", "IBASProduction2022.csv");
+
+            // Hent CSV-sti fra konfiguration (appsettings.json eller miljøvariabel)
+            var csvPath = config["CsvFilePath"];
+            if (string.IsNullOrWhiteSpace(csvPath))
+            {
+                throw new InvalidOperationException("CSV file path is not configured.");
+            }
+
             _productionRepo = LoadFromCsv(csvPath);
             _logger.LogInformation("Loaded {Count} rows from {Path}", _productionRepo.Count, csvPath);
         }
+
 
         [HttpGet]
         public IEnumerable<DailyProductionDTO> Get() => _productionRepo;
